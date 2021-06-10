@@ -15,7 +15,9 @@ async function sliceCharacter(image_context, x, y)
 		canvas_context.putImageData(image_context.getImageData(x, y, FONT_CHARACTER_WIDTH, FONT_CHARACTER_HEIGHT), 0, 0);
 		var img = new Image()
 		img.src = element_canvas.toDataURL();
-		resolve(img);
+    img.onload = () => {
+		  resolve(img);
+    }
 		// TODO: Make 'white' transparent
 		// TODO: Return (raw image data, character width)
 	});
