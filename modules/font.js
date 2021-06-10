@@ -5,7 +5,7 @@ const FONT_CHARACTER_HEIGHT = 8;
 
 async function sliceCharacter(image_context, x, y)
 {
-	return new Promise(resolve =>
+	return new Promise(async resolve =>
 	{
 		var element_canvas = document.createElement('canvas');
 		element_canvas.height = FONT_CHARACTER_HEIGHT;
@@ -13,8 +13,7 @@ async function sliceCharacter(image_context, x, y)
 		var canvas_context = element_canvas.getContext('2d');
 
 		canvas_context.putImageData(image_context.getImageData(x, y, FONT_CHARACTER_WIDTH, FONT_CHARACTER_HEIGHT), 0, 0);
-		var img = new Image()
-		img.src = element_canvas.toDataURL();
+		var img = await loadImageAsync(element_canvas.toDataURL());
 		resolve(img);
 		// TODO: Make 'white' transparent
 		// TODO: Return (raw image data, character width)
