@@ -1,5 +1,13 @@
 // General purpose utilities, not specific to the project
 
+const assert = (condition, message = "") =>
+{
+	if (!condition)
+	{
+		throw new Error(message || "Assertion failed");
+	}
+};
+
 const loadImageAsync = (url) => 
 (
 	new Promise((resolve) =>
@@ -28,4 +36,31 @@ const drawImageAndResizeVertical = (element_canvas, img) =>
 	context.drawImage(img, 0, current_height);
 };
 
-export { loadImageAsync, drawImageAndResizeVertical }
+const getTextFileAsync = (file_path) =>
+(
+	new Promise((resolve) =>
+	{
+		var request = new XMLHttpRequest();
+		request.responseType = "text";
+		request.open("GET", file_path, true);
+		request.onreadystatechange = function()
+		{
+			if(request.readyState === XMLHttpRequest.DONE)
+			{
+				var status = request.status;
+				if (status === 0 || (status >= 200 && status < 400))
+				{
+					resolve(request.responseText);
+				}
+				else
+				{
+					alert("Failed to load " + file_path + "\nError Code: " + status);
+					resolve(null);
+		  		}
+			}
+		};
+		request.send();
+	})
+);
+
+export { assert, loadImageAsync, drawImageAndResizeVertical, getTextFileAsync }
