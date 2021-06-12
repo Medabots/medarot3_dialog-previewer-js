@@ -10,7 +10,7 @@ const assert = (condition, message = "") =>
 
 const loadImageAsync = (url) => 
 (
-	new Promise((resolve) =>
+	new Promise(resolve => 
 	{
 		const image = new Image();
 		image.onload = () => { resolve(image); };
@@ -22,12 +22,12 @@ const loadImageAsync = (url) =>
 // This wouldn't be necessary if canvas provided a more convenient way to determine if something was already drawn
 const drawImageAndResizeVertical = (element_canvas, img) =>
 {
-	var context = element_canvas.getContext('2d');
-	var current_width = element_canvas.width;
-	var current_height = element_canvas.height;
-	var is_empty = current_height == 0 || current_width == 0;
+	let context = element_canvas.getContext('2d');
+	let current_width = element_canvas.width;
+	let current_height = element_canvas.height;
+	let is_empty = current_height == 0 || current_width == 0;
 
-	var data = is_empty ? null : context.getImageData(0, 0, current_width, current_height);
+	let data = is_empty ? null : context.getImageData(0, 0, current_width, current_height);
 
 	element_canvas.height += img.height;
 	element_canvas.width = current_width < img.width ? img.width : current_width;
@@ -38,16 +38,16 @@ const drawImageAndResizeVertical = (element_canvas, img) =>
 
 const getTextFileAsync = (file_path) =>
 (
-	new Promise((resolve) =>
+	new Promise(resolve =>
 	{
-		var request = new XMLHttpRequest();
+		let request = new XMLHttpRequest();
 		request.responseType = "text";
 		request.open("GET", file_path, true);
 		request.onreadystatechange = function()
 		{
 			if(request.readyState === XMLHttpRequest.DONE)
 			{
-				var status = request.status;
+				let status = request.status;
 				if (status === 0 || (status >= 200 && status < 400))
 				{
 					resolve(request.responseText);
