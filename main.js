@@ -67,4 +67,5 @@ text_boxes.forEach((text, idx) =>
 	final_images.push(drawBox(dependencies));
 });
 
-Promise.all(final_images).then((images) => { images.forEach( image => {	drawImageAndResizeVertical(element_canvas, image); }); });
+// Wait for all boxes to be prepared and then copy them into the main canvas them in order
+Promise.all(final_images).then((images) => { images.forEach( image => { drawImageAndResizeVertical(element_canvas, image); }); });

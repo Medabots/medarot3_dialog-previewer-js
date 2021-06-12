@@ -66,6 +66,7 @@ const load1bppFontAsync = async (filename) =>
 			tiles[idx] = await sliceCharacterAsync(canvas_context, px, py);
 		}
 	}
+
 	return tiles;
 };
 

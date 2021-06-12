@@ -14,6 +14,7 @@ const loadImageAsync = (url) =>
 	{
 		const image = new Image();
 		image.onload = () => { resolve(image); };
+		image.onerror = (e) => { console.log("loadImageAsync failed to load " + url); console.log(e); resolve(null); }
 		image.src = url;
 	})
 );
