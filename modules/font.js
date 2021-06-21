@@ -1,6 +1,7 @@
 import * as constants from './const.js'
 import { assert, loadImageAsync, getTextFileAsync} from './utils.js';
 
+// Returns raw image data
 const sliceCharacterAsync = async (image_context, x, y) =>
 {
 	let element_canvas = document.createElement('canvas');
@@ -33,7 +34,7 @@ const sliceCharacterAsync = async (image_context, x, y) =>
 			}
 			else
 			{
-				width = py + 1;
+				width = px + 1;
 			}
 		}
 	}
