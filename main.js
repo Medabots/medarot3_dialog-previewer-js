@@ -38,10 +38,10 @@ const modified_string = "Ah\n\nA shooting star!";
 
 // TODO: Split text to each text box (effectively every 2nd new line denotes a new box)
 // TODO: Split each box into lines
-const text_boxes = [["Ah."], ["A shooting star!"]];
+const text_boxes = [["Ah."], ["A <b>shooting star</b>!"]];
 
 // TODO: For each text box, determine the necessary fonts
-const necessary_fonts = [[font_default], [font_default, font_default_bold]];
+const necessary_fonts = [ { 'default': font_default }, { 'default': font_default, 'default_bold': font_default_bold } ];
 
 // TODO: For each text box, determine the active portrait
 // Portraits are <[Position, Facing], Character ID, Expression ID>
@@ -56,7 +56,8 @@ const text_windows = [next_page_images[0], last_page_images[0]];
 
 const drawBox = async (dependencies) =>
 {
-	let [font_map, text, text_window, portrait_position, portrait_facing, portrait_image, ...necessary_fonts] = await Promise.all(dependencies);
+	let [font_map, text, text_window, portrait_position, portrait_facing, portrait_image, necessary_fonts] = await Promise.all(dependencies);
+	for( let key in necessary_fonts) { necessary_fonts[key] = await necessary_fonts[key]; }
 	
 	// Create a temporary canvas to draw this text box
 	let element_canvas = document.createElement('canvas');
@@ -106,17 +107,53 @@ const drawBox = async (dependencies) =>
 	current_x += 1 * constants.TILE_WIDTH;
 	current_y += 1 * constants.TILE_HEIGHT;
 
-	// We set it to necessary_fonts[0] here, but we can realistically assume
-	// that at this stage every font we need has loaded
-	let current_font = necessary_fonts[0]; 
-	
+	let current_font = necessary_fonts['default']; 
+
 	for(let line_number in text)
 	{
 		let line = text[line_number]
-		for(let character_idx in line)
+		for(let character_idx = 0; character_idx < line.length; character_idx++)
 		{
 			let character = line[character_idx];
-			// TODO: Handle font changing control codes here
+
+			if(character == '<')
+			{
+				assert(current_font != null);
+				let control_character = line[++character_idx];
+				let special_data = "";
+				while(line[++character_idx] != '>') {	special_data += line[character_idx]; }
+				switch(control_character)
+				{
+					// We can realistically assume that at this stage every font we need has loaded, but we still have to await
+					case 'b': if(current_font == necessary_fonts['robotic'] || current_font == necessary_fonts['robotic_bold']) { current_font = necessary_fonts['robotic_bold']; } else { current_font = necessary_fonts['default_bold']; } break;
+					case 'i': if(current_font == necessary_fonts['default_bold'] || current_font == necessary_fonts['robotic_bold']) { current_font = necessary_fonts['robotic_bold']; } else { current_font = necessary_fonts['robotic']; } break;
+					case '/':
+					{
+						switch(special_data)
+						{
+							case 'b':
+							{
+								if(current_font == necessary_fonts['robotic_bold']) { current_font = necessary_fonts['robotic']; }
+								else if(current_font == necessary_fonts['default_bold']) { current_font = necessary_fonts['default']; }
+								else { assert(false, "Mismatched bold terminator"); }
+							}
+							break;
+							case 'i':
+							{
+								if(current_font == necessary_fonts['robotic_bold']) { current_font = necessary_fonts['default_bold']; }
+								else if(current_font == necessary_fonts['robotic']) { current_font = necessary_fonts['default']; }
+								else { assert(false, "Mismatched italic terminator"); }
+							}
+							break;
+							default: assert(false, "Unknown control code termination: " + special_data);
+						}
+					}
+					break;
+					default: assert(false, "Unknown control code: " + control_character);
+				}
+				continue;
+			}
+
 			let [width, image_data] = current_font[font_map[character]];
 			// Font Map will map characters to their respective character images
 			// Font data is returned as an array of [Width, Image Data (for use with putImageData)]
@@ -148,7 +185,7 @@ text_boxes.forEach((text, idx) =>
 	dependencies.push(portrait_positions[idx]);
 	dependencies.push(portrait_facings[idx]);
 	dependencies.push(portrait_images[idx]);
-	dependencies.push(...necessary_fonts[idx]);
+	dependencies.push(necessary_fonts[idx]);
 	final_images.push(drawBox(dependencies));
 });
 
