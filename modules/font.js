@@ -45,7 +45,7 @@ const sliceCharacterAsync = async (image_context, x, y) =>
 };
 
 // Take font with 8x8 tiles and return an array of image data for each character
-const load1bppFontAsync = async (filename) =>
+export const load1bppFontAsync = async (filename) =>
 {
 	let font_image = await loadImageAsync(filename);
 	const tile_count_x = font_image.width / constants.FONT_CHARACTER_WIDTH | 0;
@@ -71,7 +71,7 @@ const load1bppFontAsync = async (filename) =>
 	return tiles;
 };
 
-const loadFontTableAsync = async (filename) =>
+export const loadFontTableAsync = async (filename) =>
 {
 	const fp = await getTextFileAsync(filename);
 	if(fp === null)
@@ -97,5 +97,3 @@ const loadFontTableAsync = async (filename) =>
 	
 	return result;
 }
-
-export { load1bppFontAsync, loadFontTableAsync }

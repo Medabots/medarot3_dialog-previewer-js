@@ -1,6 +1,6 @@
 // General purpose utilities, not specific to the project
 
-const assert = (condition, message = "") =>
+export const assert = (condition, message = "") =>
 {
 	if (!condition)
 	{
@@ -8,7 +8,7 @@ const assert = (condition, message = "") =>
 	}
 };
 
-const loadImageAsync = (url) => 
+export const loadImageAsync = (url) => 
 (
 	new Promise(resolve => 
 	{
@@ -21,7 +21,7 @@ const loadImageAsync = (url) =>
 
 // Expects a perfect fit canvas (height = 0 if nothing is in it yet)
 // This wouldn't be necessary if canvas provided a more convenient way to determine if something was already drawn
-const drawImageAndResizeVertical = (element_canvas, img) =>
+export const drawImageAndResizeVertical = (element_canvas, img) =>
 {
 	let context = element_canvas.getContext('2d');
 	let current_width = element_canvas.width;
@@ -37,7 +37,7 @@ const drawImageAndResizeVertical = (element_canvas, img) =>
 	context.drawImage(img, 0, current_height);
 };
 
-const getTextFileAsync = (file_path) =>
+export const getTextFileAsync = (file_path) =>
 (
 	new Promise(resolve =>
 	{
@@ -63,5 +63,3 @@ const getTextFileAsync = (file_path) =>
 		request.send();
 	})
 );
-
-export { assert, loadImageAsync, drawImageAndResizeVertical, getTextFileAsync }
