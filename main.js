@@ -2,7 +2,7 @@ import * as constants from './modules/const.js'
 import { assert, loadImageAsync, drawImageAndResizeVertical } from './modules/utils.js';
 import { load1bppFontAsync, loadFontTableAsync } from './modules/font.js'
 
-const dialog_string = "<@LL,00,00><SFF>Ah!<D3><D3><@CC,FF,FF>A shooting star!<*04>";
+const dialog_string = "<@LL,00,00><SFF>Ah!<D3><D3><@RR,00,01>A shooting star!<*04>";
 
 const element_canvas = document.getElementById('output');
 const canvas_ctx = element_canvas.getContext('2d');
@@ -38,7 +38,7 @@ const modified_string = "Ah\n\nA shooting star!";
 
 // TODO: Split text to each text box (effectively every 2nd new line denotes a new box)
 // TODO: Split each box into lines
-const text_boxes = [["Ah"], ["A shooting star!"]];
+const text_boxes = [["Ah."], ["A shooting star!"]];
 
 // TODO: For each text box, determine the necessary fonts
 const necessary_fonts = [[font_default], [font_default, font_default_bold]];
@@ -46,16 +46,17 @@ const necessary_fonts = [[font_default], [font_default, font_default_bold]];
 // TODO: For each text box, determine the active portrait
 // Portraits are <[Position, Facing], Character ID, Expression ID>
 // Parse it out into the images we need to load, and the positions
-const portrait_positions = ['L', null];
+const portrait_positions = ['L', 'R'];
+const portrait_facings = ['L', 'R'];
 // TODO: Handle flipping as necessary
-const portrait_images = [loadImageAsync("resources/portraits/0/0.png"), null];
+const portrait_images = [loadImageAsync("resources/portraits/0/0.png"), loadImageAsync("resources/portraits/0/1.png")];
 
 // TODO: Determine what text box this needs to be in (if it's last, if the text is too long, etc...)
 const text_windows = [next_page_images[0], last_page_images[0]];
 
 const drawBox = async (dependencies) =>
 {
-	let [font_map, text, text_window, portrait_position, portrait_image, ...necessary_fonts] = await Promise.all(dependencies);
+	let [font_map, text, text_window, portrait_position, portrait_facing, portrait_image, ...necessary_fonts] = await Promise.all(dependencies);
 	
 	// Create a temporary canvas to draw this text box
 	let element_canvas = document.createElement('canvas');
@@ -68,16 +69,37 @@ const drawBox = async (dependencies) =>
 	let current_x = 0;
 	let current_y = 0;
 
+	// Handle portraits
 	if(portrait_image != null)
 	{
 		assert(portrait_position == 'L' || portrait_position == 'R');
-		if(portrait_position)
-		drawImageAndResizeVertical(element_canvas, portrait_image);
+		element_canvas.height = portrait_image.height;
+		element_canvas.width = portrait_image.width;
+
+		if(portrait_position == 'R')
+		{
+			assert(text_window.width > portrait_image.width);
+			element_canvas.width = text_window.width;
+			current_x += text_window.width - portrait_image.width;
+		}
+		
+		assert(portrait_facing == 'L' || portrait_facing == 'R');
+
+		if(portrait_facing == 'R')
+		{
+			canvas_context.scale(-1, 1);
+			current_x += portrait_image.width;
+			current_x *= -1;
+		}
+
+		canvas_context.drawImage(portrait_image, current_x, current_y);
 
 		// Portrait won't affect x-coordinate
 		current_y += portrait_image.height;
+		current_x = 0;
 	}
 
+	// Draw the text box
 	drawImageAndResizeVertical(element_canvas, text_window);
 
 	// Initialize at one tile below and one tile over to bypass the border
@@ -124,6 +146,7 @@ text_boxes.forEach((text, idx) =>
 	dependencies.push(text);
 	dependencies.push(text_windows[idx]);
 	dependencies.push(portrait_positions[idx]);
+	dependencies.push(portrait_facings[idx]);
 	dependencies.push(portrait_images[idx]);
 	dependencies.push(...necessary_fonts[idx]);
 	final_images.push(drawBox(dependencies));
