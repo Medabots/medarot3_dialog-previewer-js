@@ -1,67 +1,124 @@
 // Medarot 3 specific implementation details
 
 import * as constants from './const.js'
-import { assert, loadImageAsync, drawImageAndResizeVertical } from './utils.js';
-import { load1bppFontAsync, loadFontTableAsync } from './font.js'
+import { assert, loadImageAsync, loadListAsync, drawImageAndResizeVertical } from './utils.js';
+import { load1bppFontAsync } from './font.js'
 
+// Maintain a cache of promises if we've already loaded certain files
+const resource_cache = {};
+const checkResourceCache = async (filename, fn) =>
+{
+	if (!(filename in resource_cache)) { resource_cache[filename] = fn(filename); }
+	return resource_cache[filename];
+}
+
+// Preload things in initialize
+// In our case, we need the font metadata
+let font_types = checkResourceCache("resources/fonts/FontTypes.lst", loadListAsync);
+let font_map = checkResourceCache("resources/fonts/VWF.lst", loadListAsync);
+export const initialize = async () =>
+{
+	font_types = Object.assign({}, ...Object.entries(await font_types).map(([a,b]) => ({ [b]: a })));
+	font_map = await font_map;
+}
 
 // Input: Format String
 // Output: Generator that yields each text box's array of dependencies to use in the drawBox functions
 // Will take input text and determine what to do with it
 export function* getDependencies(dialog_string)
 {
-	// Preload and preprocess images
-	const next_page_images = [
-		loadImageAsync("resources/window/next-page.png"),
-		loadImageAsync("resources/window/error-top-next-page.png"),
-		loadImageAsync("resources/window/error-bottom-next-page.png"),
-		loadImageAsync("resources/window/error-both-next-page.png"),
-	];
-	const last_page_images = [
-		loadImageAsync("resources/window/last-page.png"),
-		loadImageAsync("resources/window/error-top-last-page.png"),
-		loadImageAsync("resources/window/error-bottom-last-page.png"),
-		loadImageAsync("resources/window/error-both-last-page.png"),
-	];
+	// Handle all the new line characters
+  	let modified_string = dialog_string;
+  	modified_string = modified_string.replaceAll("<CD>", "\n"); // New line
+  	modified_string = modified_string.replaceAll("<CF>", "\n\n"); // New page w/ input
+  	modified_string = modified_string.replaceAll("<D1>", "\n\n"); // New page w/o input
 
-	const font_default = load1bppFontAsync("resources/fonts/Font.png");
-	//const font_narrow = load1bppFontAsync("resources/fonts/NarrowFont.png"); // Shouldn't be necessary for dialog
-	const font_default_bold = load1bppFontAsync("resources/fonts/BoldFont.png");
-	const font_robotic = load1bppFontAsync("resources/fonts/RoboticFont.png");
-	const font_robotic_bold = load1bppFontAsync("resources/fonts/BoldRoboticFont.png");
+  	modified_string = modified_string.replace(/\<&[a-zA-Z0-9]+\>/g,"~~~~~~~~"); // Assume the longest length (8 * 8)
+	modified_string = modified_string.replace(/<\*.+?>/g,""); // Get rid of exit codes
+  	modified_string = modified_string.replace(/<S.+?>/g,""); // Get rid of special effects
 
-	const font_map = loadFontTableAsync("resources/fonts/VWF.lst");
+  	let final_string = "";
+  	// D3 is considered a new line if it's on the first line, or a new box if it's on the second
+  	{
+  		let second_line = false;
+		for(let line of modified_string.split('\n'))
+  		{
+  			let split_line = line.split("<D3>");
+  			for(let l of split_line)
+  			{
+  				final_string += l;
+  				final_string += second_line ? '\n\n' : '\n';
+  				second_line = !second_line;
+  			}
+  			second_line = !second_line;
+  		}
+  		// Remove the unnecessary final new line
+  		final_string = final_string.slice(0, -1);
+  	}
 
-	// TODO: Strip out control codes we won't use (end codes and speed codes)
-	const modified_string = "Ah\n\nA shooting star!";
+  	const text_boxes = [];
+  	const text_windows = [];
+  	const necessary_fonts = [];
+  	const portrait_positions = [];
+  	const portrait_facings = [];
+  	const portrait_images = [];
 
-	// TODO: Split text to each text box (effectively every 2nd new line denotes a new box)
-	// TODO: Split each box into lines
-	const text_boxes = [["Ah."], ["A <b>shooting star</b>!"]];
+  	final_string.split("\n\n").forEach((text) => 
+  	{
+		// Handle raw text
+		const modified_text = text.replace(/<@.+?>/,"").split("\n"); // Remove portraits before adding it to the text boxes
+  		text_boxes.push(modified_text);
 
-	// TODO: For each text box, determine the necessary fonts
-	const necessary_fonts = [ { 'default': font_default }, { 'default': font_default, 'default_bold': font_default_bold } ];
+		// Handle portraits
+		const portrait_info = text.match(/^<@([L|R])([L|R]),([0-9A-F][0-9A-F]),([0-9A-F][0-9A-F])>/); // Portraits are <@[Position, Facing], Character ID, Expression ID>
+		
+		let portrait_position = null;
+		let portrait_facing = null;
+		let portrait_image = null;
+		if(portrait_info != null)
+		{
+			let portrait_character = null;
+			let portrait_expression = null;
 
-	// TODO: For each text box, determine the active portrait
-	// Portraits are <[Position, Facing], Character ID, Expression ID>
-	// Parse it out into the images we need to load, and the positions
-	const portrait_positions = ['L', 'R'];
-	const portrait_facings = ['L', 'R'];
-	// TODO: Handle flipping as necessary
-	const portrait_images = [loadImageAsync("resources/portraits/0/0.png"), loadImageAsync("resources/portraits/0/1.png")];
+			[, portrait_position, portrait_facing, portrait_character, portrait_expression] = portrait_info
 
-	// TODO: Determine what text box this needs to be in (if it's last, if the text is too long, etc...)
-	const text_windows = [next_page_images[0], last_page_images[0]];
+			portrait_character = parseInt(portrait_character, 16);
+			portrait_expression = parseInt(portrait_expression, 16);
+
+			portrait_image = `${portrait_character}/${portrait_expression}`;
+		}
+		portrait_positions.push(portrait_position);
+		portrait_facings.push(portrait_facing);
+		portrait_images.push(portrait_image);
+
+		// Handle fonts
+		const font_info = text.match(/<f[0-9A-F][0-9A-F]>/g) ?? [];
+		
+		let necessary_font = { 0: font_types[0], };
+
+		font_info.forEach((font_code) => 
+		{
+			let idx = parseInt(font_code.match(/f([0-9A-F][0-9A-F])/)[1]);
+			necessary_font[idx] = font_types[idx];
+		});
+
+  		necessary_fonts.push(necessary_font);
+
+  		// TODO: Determine if the text is going to go over somehow
+  		text_windows.push("next-page");
+  	});
+
+  	text_windows[text_windows.length - 1] = "last-page";
 
 	for(let idx in text_boxes) 
 	{
 		const text = text_boxes[idx];
-		const dependencies = [font_map];
-		dependencies.push(text);
-		dependencies.push(text_windows[idx]);
+		const dependencies = [text];
+		dependencies.push(checkResourceCache("resources/window/" + text_windows[idx] + ".png", loadImageAsync));
 		dependencies.push(portrait_positions[idx]);
 		dependencies.push(portrait_facings[idx]);
-		dependencies.push(portrait_images[idx]);
+		dependencies.push(portrait_images[idx] ? checkResourceCache("resources/portraits/" + portrait_images[idx] + ".png", loadImageAsync) : null);
+		for(let key in necessary_fonts[idx]) { necessary_fonts[idx][key] = checkResourceCache("resources/fonts/" + necessary_fonts[idx][key] + ".png", load1bppFontAsync); }
 		dependencies.push(necessary_fonts[idx]);
 		yield dependencies;
 	};
@@ -69,8 +126,8 @@ export function* getDependencies(dialog_string)
 
 export const drawBox = async (dependencies) =>
 {
-	let [font_map, text, text_window, portrait_position, portrait_facing, portrait_image, necessary_fonts] = await Promise.all(dependencies);
-	for( let key in necessary_fonts) { necessary_fonts[key] = await necessary_fonts[key]; }
+	let [text, text_window, portrait_position, portrait_facing, portrait_image, necessary_fonts] = await Promise.all(dependencies);
+	for(let key in necessary_fonts) { necessary_fonts[key] = await necessary_fonts[key]; }
 	
 	// Create a temporary canvas to draw this text box
 	let element_canvas = document.createElement('canvas');
@@ -116,15 +173,17 @@ export const drawBox = async (dependencies) =>
 	// Draw the text box
 	drawImageAndResizeVertical(element_canvas, text_window);
 
-	// Initialize at one tile below and one tile over to bypass the border
-	current_x += 1 * constants.TILE_WIDTH;
-	current_y += 1 * constants.TILE_HEIGHT;
-
-	let current_font = necessary_fonts['default']; 
+	let current_font = necessary_fonts[0]; 
 
 	for(let line_number in text)
 	{
+		// Initialize at one tile below to bypass the border
+		// Always reset x-coordinate
+		current_y += 1 * constants.TILE_HEIGHT;
+		current_x = 1 * constants.TILE_WIDTH;
+
 		let line = text[line_number]
+		
 		for(let character_idx = 0; character_idx < line.length; character_idx++)
 		{
 			let character = line[character_idx];
@@ -134,34 +193,10 @@ export const drawBox = async (dependencies) =>
 				assert(current_font != null);
 				let control_character = line[++character_idx];
 				let special_data = "";
-				while(line[++character_idx] != '>') {	special_data += line[character_idx]; }
+				while(line[++character_idx] != '>') { special_data += line[character_idx]; }
 				switch(control_character)
 				{
-					// We can realistically assume that at this stage every font we need has loaded, but we still have to await
-					case 'b': if(current_font == necessary_fonts['robotic'] || current_font == necessary_fonts['robotic_bold']) { current_font = necessary_fonts['robotic_bold']; } else { current_font = necessary_fonts['default_bold']; } break;
-					case 'i': if(current_font == necessary_fonts['default_bold'] || current_font == necessary_fonts['robotic_bold']) { current_font = necessary_fonts['robotic_bold']; } else { current_font = necessary_fonts['robotic']; } break;
-					case '/':
-					{
-						switch(special_data)
-						{
-							case 'b':
-							{
-								if(current_font == necessary_fonts['robotic_bold']) { current_font = necessary_fonts['robotic']; }
-								else if(current_font == necessary_fonts['default_bold']) { current_font = necessary_fonts['default']; }
-								else { assert(false, "Mismatched bold terminator"); }
-							}
-							break;
-							case 'i':
-							{
-								if(current_font == necessary_fonts['robotic_bold']) { current_font = necessary_fonts['default_bold']; }
-								else if(current_font == necessary_fonts['robotic']) { current_font = necessary_fonts['default']; }
-								else { assert(false, "Mismatched italic terminator"); }
-							}
-							break;
-							default: assert(false, "Unknown control code termination: " + special_data);
-						}
-					}
-					break;
+					case 'f': current_font = necessary_fonts[parseInt(special_data)]; break;
 					default: assert(false, "Unknown control code: " + control_character);
 				}
 				continue;

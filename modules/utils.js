@@ -63,3 +63,30 @@ export const getTextFileAsync = (file_path) =>
 		request.send();
 	})
 );
+
+export const loadListAsync = async (filename) =>
+{
+	const fp = await getTextFileAsync(filename);
+	if(fp === null)
+	{
+		alert("Failed to get " + filename);
+		return {};
+	}
+	const lines = fp.split(/\r?\n/);
+	
+	let current_index = 0;
+	let result = {}
+	for(let line_number in lines)
+	{
+		const line = lines[line_number];
+		if(line.startsWith('|') && line.length > 1)
+		{
+			current_index = parseInt(line.slice(1), 16);
+			assert(Number.isInteger(current_index), "Unable to parse line in " + filename + ": " + line);
+			continue;
+		}
+		result[line] = current_index++;
+	}
+	
+	return result;
+};
