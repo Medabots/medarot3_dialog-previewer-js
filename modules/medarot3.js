@@ -70,11 +70,13 @@ export function* getDependencies(dialog_string)
   		text_boxes.push(modified_text);
 
 		// Handle portraits
-		const portrait_info = text.match(/^<@([L|R])([L|R]),([0-9A-F][0-9A-F]),([0-9A-F][0-9A-F])>/); // Portraits are <@[Position, Facing], Character ID, Expression ID>
+		const portrait_info = text.match(/^<@([L|R|C])([L|R|C]),([0-9A-F][0-9A-F]),([0-9A-F][0-9A-F])>/); // Portraits are <@[Position, Facing], Character ID, Expression ID>
 		
-		let portrait_position = null;
-		let portrait_facing = null;
-		let portrait_image = null;
+		// Default to the previous portrait
+		let portrait_position = portrait_positions.length > 0 ? portrait_positions[portrait_positions.length - 1] : null;
+		let portrait_facing = portrait_facings.length > 0 ? portrait_facings[portrait_facings.length - 1] : null;
+		let portrait_image = portrait_images.length > 0 ? portrait_images[portrait_images.length - 1] : null;
+
 		if(portrait_info != null)
 		{
 			let portrait_character = null;
@@ -82,11 +84,21 @@ export function* getDependencies(dialog_string)
 
 			[, portrait_position, portrait_facing, portrait_character, portrait_expression] = portrait_info
 
-			portrait_character = parseInt(portrait_character, 16);
-			portrait_expression = parseInt(portrait_expression, 16);
-
-			portrait_image = `${portrait_character}/${portrait_expression}`;
+			assert(portrait_position != "C" || portrait_facing == "C"); // Both must be true
+			if(portrait_position != "C")
+			{
+				portrait_character = parseInt(portrait_character, 16);
+				portrait_expression = parseInt(portrait_expression, 16);
+				portrait_image = `${portrait_character}/${portrait_expression}`;
+			}
+			else
+			{
+				portrait_character = null;
+				portrait_expression = null;
+				portrait_image = null;
+			}
 		}
+
 		portrait_positions.push(portrait_position);
 		portrait_facings.push(portrait_facing);
 		portrait_images.push(portrait_image);
