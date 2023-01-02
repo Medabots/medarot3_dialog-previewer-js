@@ -22,7 +22,113 @@ export const initialize = async () =>
 	font_map = await font_map;
 }
 
-// Input: Format String
+// Input: Game-ready string
+// Output: Game-ready string with <D3> inserted as necessary to auto-break newlines
+// Note this function isn't asynchronous
+const LINE_PIXEL_LIMIT = constants.FONT_CHARACTER_WIDTH * 16;
+export const autoLinebreak = async (text) =>
+{
+	let current_font = await checkResourceCache("resources/fonts/" + font_types[0] + ".png", load1bppFontAsync);
+	assert(current_font != null);
+
+	let final_text = "";
+	let current_line_len = 0;
+
+	for(let word of text.split(/(<.*?>|\s)/g))
+	{
+		if (word.length == 0 || word == " ") continue; // Short-circuit empty splits and spaces, as those are handled separately
+
+		let current_word_len = 0;
+		let add_space = false;
+
+		if (word[0] == '<' && word[word.length - 1] == '>')
+		{
+			// If it's a control code, handle it accordingly
+			let control = word[1];
+			let params = "";
+
+			let i = 2;
+			while(word[i] != ">")
+			{
+				assert(i < word.length);
+				params += word[i++];
+			}
+
+			switch(control)
+			{
+				case 'f':
+					current_font = await checkResourceCache("resources/fonts/" + font_types[parseInt(params)] + ".png", load1bppFontAsync);
+					break;
+				case '&':
+					current_word_len = 8 * (current_font[font_map['~']][0] + 1) - 1; // Default to 8 tiles worth, accounting for 1 pixel between characters
+					add_space = current_line_len != 0;
+					break;
+				case 'C':
+					if (params == 'D' || params == 'F')
+					{
+						// New line or new page
+						current_line_len = 0;
+					}
+					break;
+				case 'D':
+					if (params == '1' || params == '3')
+					{
+						// New page w/o input
+						current_line_len = 0;
+					}
+					break;
+				default: // Don't count it towards anything
+					break;
+			}
+		}
+		else	
+		{
+			for(let i = 0; i < word.length; i++)
+			{
+				let ch = word[i];
+				let ch_len = 0;
+				
+				ch_len = current_font[font_map[ch]][0];
+				current_word_len += ch_len;
+
+				// If it's not the last character, account for the space between letters
+				if (i + 1 != word.length)
+					current_word_len++;
+			}
+
+			add_space = current_line_len != 0;
+		}
+
+		if(add_space)
+		{
+			current_word_len += 2;
+		}
+
+		if (current_word_len + current_line_len > LINE_PIXEL_LIMIT)
+		{
+			// Trigger linebreak
+			current_line_len = 0;
+			final_text += "<D3>";
+			if (add_space)
+			{
+				current_word_len -= 2;
+				add_space = false;
+			}
+		}
+
+		if (add_space)
+		{
+			final_text += " ";
+		}
+
+		final_text += word;
+		current_line_len += current_word_len;
+	}
+	alert(final_text);
+	return final_text;
+}
+
+// Input: Game-ready string
 // Output: Generator that yields each text box's array of dependencies to use in the drawBox functions
 // Will take input text and determine what to do with it
 export function* getDependencies(dialog_string)
@@ -221,7 +327,6 @@ export const drawBox = async (dependencies) =>
 			// We make a special case for 'space' which is 2
 			// TODO: Maybe shouldn't assume spaces are always 2 pixels
 			if(width == 0) { width = 2; }
-			//canvas_context.putImageData(image_data, current_x, current_y);
 			canvas_context.drawImage(image_data, current_x, current_y);
 			current_x += width;
 
