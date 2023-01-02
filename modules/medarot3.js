@@ -124,7 +124,6 @@ export const autoLinebreak = async (text) =>
 		final_text += word;
 		current_line_len += current_word_len;
 	}
-	alert(final_text);
 	return final_text;
 }
 
