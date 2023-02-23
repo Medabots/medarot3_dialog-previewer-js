@@ -56,10 +56,10 @@ export const autoLinebreak = async (text) =>
 
 			switch(control)
 			{
-				case 'f':
-					current_font = await checkResourceCache("resources/fonts/" + font_types[parseInt(params)] + ".png", load1bppFontAsync);
-					break;
-				case '&':
+			case 'f':
+				current_font = await checkResourceCache("resources/fonts/" + font_types[parseInt(params)] + ".png", load1bppFontAsync);
+				break;
+			case '&':
 					current_word_len = 8 * (current_font[font_map['~']][0] + 1) - 1; // Default to 8 tiles worth, accounting for 1 pixel between characters
 					add_space = current_line_len != 0;
 					break;
@@ -79,61 +79,61 @@ export const autoLinebreak = async (text) =>
 					break;
 				default: // Don't count it towards anything
 					break;
+				}
 			}
-		}
-		else	
-		{
-			for(let i = 0; i < word.length; i++)
+			else	
 			{
-				let ch = word[i];
-				let ch_len = 0;
-				
-				ch_len = current_font[font_map[ch]][0];
-				current_word_len += ch_len;
+				for(let i = 0; i < word.length; i++)
+				{
+					let ch = word[i];
+					let ch_len = 0;
+					
+					ch_len = current_font[font_map[ch]][0];
+					current_word_len += ch_len;
 
 				// If it's not the last character, account for the space between letters
-				if (i + 1 != word.length)
-					current_word_len++;
+					if (i + 1 != word.length)
+						current_word_len++;
+				}
+
+				add_space = current_line_len != 0;
 			}
 
-			add_space = current_line_len != 0;
-		}
+			if(add_space)
+			{
+				current_word_len += 2;
+			}
 
-		if(add_space)
-		{
-			current_word_len += 2;
-		}
-
-		if (current_word_len + current_line_len > LINE_PIXEL_LIMIT)
-		{
+			if (current_word_len + current_line_len > LINE_PIXEL_LIMIT)
+			{
 			// Trigger linebreak
-			current_line_len = 0;
-			final_text += "<D3>";
+				current_line_len = 0;
+				final_text += "<D3>";
+				if (add_space)
+				{
+					current_word_len -= 2;
+					add_space = false;
+				}
+			}
+
 			if (add_space)
 			{
-				current_word_len -= 2;
-				add_space = false;
+				final_text += " ";
 			}
-		}
 
-		if (add_space)
-		{
-			final_text += " ";
+			final_text += word;
+			current_line_len += current_word_len;
 		}
-
-		final_text += word;
-		current_line_len += current_word_len;
+		return final_text;
 	}
-	return final_text;
-}
 
 // Input: Game-ready string
 // Output: Generator that yields each text box's array of dependencies to use in the drawBox functions
 // Will take input text and determine what to do with it
-export function* getDependencies(dialog_string)
-{
+	export function* getDependencies(dialog_string)
+	{
 	// Handle all the new line characters
-  	let modified_string = dialog_string;
+		let modified_string = dialog_string;
   	modified_string = modified_string.replaceAll("<CD>", "\n"); // New line
   	modified_string = modified_string.replaceAll("<CF>", "\n\n"); // New page w/ input
   	modified_string = modified_string.replaceAll("<D1>", "\n\n"); // New page w/o input
@@ -146,18 +146,22 @@ export function* getDependencies(dialog_string)
   	// D3 is considered a new line if it's on the first line, or a new box if it's on the second
   	{
   		let second_line = false;
-		for(let line of modified_string.split('\n'))
+  		for(let line of modified_string.split('\n'))
   		{
   			let split_line = line.split("<D3>");
   			for(let l of split_line)
   			{
+  				if(l === "")
+  				{
+  					continue;
+  				}
   				final_string += l;
   				final_string += second_line ? '\n\n' : '\n';
   				second_line = !second_line;
   			}
   			second_line = !second_line;
   		}
-  		// Remove the unnecessary final new line
+  	  	// Remove the unnecessary final new line
   		final_string = final_string.slice(0, -1);
   	}
 
@@ -172,7 +176,7 @@ export function* getDependencies(dialog_string)
   	{
 		// Handle raw text
 		const modified_text = text.replace(/<@.+?>/,"").split("\n"); // Remove portraits before adding it to the text boxes
-  		text_boxes.push(modified_text);
+		text_boxes.push(modified_text);
 
 		// Handle portraits
 		const portrait_info = text.match(/^<@([L|R|C])([L|R|C]),([0-9A-F][0-9A-F]),([0-9A-F][0-9A-F])>/); // Portraits are <@[Position, Facing], Character ID, Expression ID>
@@ -219,122 +223,122 @@ export function* getDependencies(dialog_string)
 			necessary_font[idx] = font_types[idx];
 		});
 
-  		necessary_fonts.push(necessary_font);
+		necessary_fonts.push(necessary_font);
 
   		// TODO: Determine if the text is going to go over somehow
-  		text_windows.push("next-page");
-  	});
+		text_windows.push("next-page");
+	});
 
   	text_windows[text_windows.length - 1] = "last-page";
 
-	for(let idx in text_boxes) 
-	{
-		const text = text_boxes[idx];
-		const dependencies = [text];
-		dependencies.push(checkResourceCache("resources/window/" + text_windows[idx] + ".png", loadImageAsync));
-		dependencies.push(portrait_positions[idx]);
-		dependencies.push(portrait_facings[idx]);
-		dependencies.push(portrait_images[idx] ? checkResourceCache("resources/portraits/" + portrait_images[idx] + ".png", loadImageAsync) : null);
-		for(let key in necessary_fonts[idx]) { necessary_fonts[idx][key] = checkResourceCache("resources/fonts/" + necessary_fonts[idx][key] + ".png", load1bppFontAsync); }
-		dependencies.push(necessary_fonts[idx]);
-		yield dependencies;
-	};
-}
+  	for(let idx in text_boxes) 
+  	{
+  		const text = text_boxes[idx];
+  		const dependencies = [text];
+  		dependencies.push(checkResourceCache("resources/window/" + text_windows[idx] + ".png", loadImageAsync));
+  		dependencies.push(portrait_positions[idx]);
+  		dependencies.push(portrait_facings[idx]);
+  		dependencies.push(portrait_images[idx] ? checkResourceCache("resources/portraits/" + portrait_images[idx] + ".png", loadImageAsync) : null);
+  		for(let key in necessary_fonts[idx]) { necessary_fonts[idx][key] = checkResourceCache("resources/fonts/" + necessary_fonts[idx][key] + ".png", load1bppFontAsync); }
+  			dependencies.push(necessary_fonts[idx]);
+  		yield dependencies;
+  	};
+  }
 
-export const drawBox = async (dependencies) =>
-{
-	let [text, text_window, portrait_position, portrait_facing, portrait_image, necessary_fonts] = await Promise.all(dependencies);
-	for(let key in necessary_fonts) { necessary_fonts[key] = await necessary_fonts[key]; }
-	
+  export const drawBox = async (dependencies) =>
+  {
+  	let [text, text_window, portrait_position, portrait_facing, portrait_image, necessary_fonts] = await Promise.all(dependencies);
+  	for(let key in necessary_fonts) { necessary_fonts[key] = await necessary_fonts[key]; }
+  		
 	// Create a temporary canvas to draw this text box
-	let element_canvas = document.createElement('canvas');
-	let canvas_context = element_canvas.getContext('2d');
-	
-	element_canvas.height = 0;
-	element_canvas.width = 0;
+  		let element_canvas = document.createElement('canvas');
+  	let canvas_context = element_canvas.getContext('2d');
+  	
+  	element_canvas.height = 0;
+  	element_canvas.width = 0;
 
 	// Keep track of where to draw text
-	let current_x = 0;
-	let current_y = 0;
+  	let current_x = 0;
+  	let current_y = 0;
 
 	// Handle portraits
-	if(portrait_image != null)
-	{
-		assert(portrait_position == 'L' || portrait_position == 'R');
-		element_canvas.height = portrait_image.height;
-		element_canvas.width = portrait_image.width;
+  	if(portrait_image != null)
+  	{
+  		assert(portrait_position == 'L' || portrait_position == 'R');
+  		element_canvas.height = portrait_image.height;
+  		element_canvas.width = portrait_image.width;
 
-		if(portrait_position == 'R')
-		{
-			assert(text_window.width > portrait_image.width);
-			element_canvas.width = text_window.width;
-			current_x += text_window.width - portrait_image.width;
-		}
-		
-		assert(portrait_facing == 'L' || portrait_facing == 'R');
+  		if(portrait_position == 'R')
+  		{
+  			assert(text_window.width > portrait_image.width);
+  			element_canvas.width = text_window.width;
+  			current_x += text_window.width - portrait_image.width;
+  		}
+  		
+  		assert(portrait_facing == 'L' || portrait_facing == 'R');
 
-		if(portrait_facing == 'R')
-		{
-			canvas_context.scale(-1, 1);
-			current_x += portrait_image.width;
-			current_x *= -1;
-		}
+  		if(portrait_facing == 'R')
+  		{
+  			canvas_context.scale(-1, 1);
+  			current_x += portrait_image.width;
+  			current_x *= -1;
+  		}
 
-		canvas_context.drawImage(portrait_image, current_x, current_y);
+  		canvas_context.drawImage(portrait_image, current_x, current_y);
 
 		// Portrait won't affect x-coordinate
-		current_y += portrait_image.height;
-		current_x = 0;
-	}
+  		current_y += portrait_image.height;
+  		current_x = 0;
+  	}
 
 	// Draw the text box
-	drawImageAndResizeVertical(element_canvas, text_window);
+  	drawImageAndResizeVertical(element_canvas, text_window);
 
-	let current_font = necessary_fonts[0]; 
+  	let current_font = necessary_fonts[0]; 
 
-	for(let line_number in text)
-	{
+  	for(let line_number in text)
+  	{
 		// Initialize at one tile below to bypass the border
 		// Always reset x-coordinate
-		current_y += 1 * constants.TILE_HEIGHT;
-		current_x = 1 * constants.TILE_WIDTH;
+  		current_y += 1 * constants.TILE_HEIGHT;
+  		current_x = 1 * constants.TILE_WIDTH;
 
-		let line = text[line_number]
-		
-		for(let character_idx = 0; character_idx < line.length; character_idx++)
-		{
-			let character = line[character_idx];
+  		let line = text[line_number]
+  		
+  		for(let character_idx = 0; character_idx < line.length; character_idx++)
+  		{
+  			let character = line[character_idx];
 
-			if(character == '<')
-			{
-				assert(current_font != null);
-				let control_character = line[++character_idx];
-				let special_data = "";
-				while(line[++character_idx] != '>') { special_data += line[character_idx]; }
-				switch(control_character)
-				{
-					case 'f': current_font = necessary_fonts[parseInt(special_data)]; break;
-					default: assert(false, "Unknown control code: " + control_character);
-				}
-				continue;
-			}
+  			if(character == '<')
+  			{
+  				assert(current_font != null);
+  				let control_character = line[++character_idx];
+  				let special_data = "";
+  				while(line[++character_idx] != '>') { special_data += line[character_idx]; }
+  				switch(control_character)
+  				{
+  				case 'f': current_font = necessary_fonts[parseInt(special_data)]; break;
+  				default: assert(false, "Unknown control code: " + control_character);
+  				}
+  				continue;
+  			}
 
-			let [width, image_data] = current_font[font_map[character]];
+  			let [width, image_data] = current_font[font_map[character]];
 			// Font Map will map characters to their respective character images
 			// Font data is returned as an array of [Width, Image Data (for use with putImageData)]
 			// The widths don't account for the one space between characters
 			// We make a special case for 'space' which is 2
 			// TODO: Maybe shouldn't assume spaces are always 2 pixels
-			if(width == 0) { width = 2; }
-			canvas_context.drawImage(image_data, current_x, current_y);
-			current_x += width;
+  			if(width == 0) { width = 2; }
+  			canvas_context.drawImage(image_data, current_x, current_y);
+  			current_x += width;
 
 			// Add a space between characters
-			current_x += 1;
-		}
-		current_y += 1 * constants.TILE_HEIGHT;
-	}
+  			current_x += 1;
+  		}
+  		current_y += 1 * constants.TILE_HEIGHT;
+  	}
 
 	// TODO: Realistically should just be able to return the image data here and let the caller handle waiting
-	return await loadImageAsync(element_canvas.toDataURL());
-};
+  	return await loadImageAsync(element_canvas.toDataURL());
+  };
