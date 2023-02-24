@@ -13,6 +13,7 @@ const uri_args = window.location.search.substring(1);
 //const dialog_string = "Huh? A kid?<CF><D3>I thought it was a shooting<D3>star.<D3>Maybe I can ask them how to<D3>get home.<D3>...but how could they know?<*03>";
 //const dialog_string = "Inserted the <f02><&BUF06><f00> medal.";
 //const dialog_string = "<@LL,00,04>It's a vending machine that has juice. <CF>I'm not thirsty right now."
+//const dialog_string = "<@LL,00,04>It's a vending machine that sells ice cream.<CF><@LL,00,01>Pudding ice cream...!<CF><@LL,00,03>Nah..."
 const dialog_string = uri_args && uri_args.includes('t=') ? decodeURIComponent(uri_args.split('t=')[1]) : default_dialog_string;
 
 const element_canvas = document.getElementById('output');
